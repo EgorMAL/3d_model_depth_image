@@ -8,6 +8,8 @@ pipeline = rs.pipeline()
 # Configure the pipeline to stream depth frames
 config = rs.config()
 config.enable_stream(rs.stream.depth, 640, 480, rs.format.z16, 30)
+config.enable_stream(rs.stream.color, 640, 480, rs.format.bgr8, 30)
+align_to_depth = rs.align(rs.stream.depth)
 
 # Start streaming
 pipeline.start(config)
@@ -49,8 +51,13 @@ for i in range(1, 11):
         # Calculate the distance from each pixel to the parallel plane
         distances_to_parallel_plane = np.abs(distances - parallel_plane_depth)
 
-        output_path = f"RealSense_Images/RealSense_Test_{i}.png"
-        cv2.imwrite(output_path, distances_to_parallel_plane * 255)  # Умножаем на 255 для правильного отображения
+        color_frame = frames.get_color_frame()
+        color_image = np.asanyarray(color_frame.get_data())
+
+        output_color_path = f"RealSense_Images/RealSense_Color_{i}.png"
+        output_depth_path = f"RealSense_Images/RealSense_Depth_{i}.png"
+        cv2.imwrite(output_color_path, color_image)
+        cv2.imwrite(output_depth_path, distances_to_parallel_plane * 255)  # Умножаем на 255 для правильного отображения
 
         # Display the image with distances to the parallel plane
         cv2.imshow("Distances to Parallel Plane", distances_to_parallel_plane)
