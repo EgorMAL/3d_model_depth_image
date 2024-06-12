@@ -1,3 +1,4 @@
+"""Run this file to build 3-D model"""
 from model3d import Model3d
 from consts import IMAGE_PATH, BOX_QUEUE
 

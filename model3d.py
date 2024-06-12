@@ -1,18 +1,18 @@
-from math import sqrt
+"""Module providing classes and functions for box detection on pallet."""
+import os
+import json
 import cv2
 import numpy as np
 import matplotlib.pyplot as plt
-import os
-import pandas as pd
 from matplotlib.patches import Rectangle
 import mpl_toolkits.mplot3d.art3d as art3d
-import json
 from consts import IMAGE_PATH, BOX_QUEUE
 
 class PalletDetect:
-    def __init__(self, image: np.array, N: int, M: int):
+    """Class for Pallet detection on image"""
+    def __init__(self, image: np.array, n: int, m: int):
         self.image = image
-        self.grid = np.array([M, N])
+        self.grid = np.array([m, n])
         self.minSquareLimit = 200
         self.box = None
 
@@ -59,13 +59,13 @@ class PalletDetect:
         return self.box
 
 class Pallet():
-    def __init__(self, imagePath, x=75, y=75):
+    def __init__(self, image_path, x=75, y=75):
         self.x = x
         self.y = y
-        self.imagePath = imagePath
+        self.image_path = image_path
 
     def find_bounding_box(self):
-        img = cv2.imread(self.imagePath)
+        img = cv2.imread(self.image_path)
         pDet = PalletDetect(img, self.x, self.y)
         pDet.run()
         boundingBox = pDet.get_box()
@@ -77,12 +77,12 @@ class Pallet():
         self.dy = self.endY - self.startY
 
 class Box():
-    def __init__ (self, boxId, x, y, z, imagePath):
-        self.id = boxId
+    def __init__ (self, box_id, x, y, z, image_path):
+        self.id = box_id
         self.x = x
         self.y = y
         self.z = z
-        self.imagePath = imagePath
+        self.image_path = image_path
 
     def find_box_start_point_3d(self, pallet: Pallet, queue):
         """Поиск стартовой точки для отрисовки (x и y переставлены местами)"""
@@ -187,8 +187,8 @@ class Box():
     def get_bounding_box_coordinates(self, previousObject, pallet: Pallet):
         """Поиск координат контура новой коробки"""
         # Загрузка изображений
-        image1 = cv2.imread(self.imagePath)
-        image2 = cv2.imread(previousObject.imagePath)
+        image1 = cv2.imread(self.image_path)
+        image2 = cv2.imread(previousObject.image_path)
 
         image1 = image1[pallet.startX:pallet.endX, pallet.startY:pallet.endY]
         image2 = image2[pallet.startX:pallet.endX, pallet.startY:pallet.endY]
@@ -295,11 +295,11 @@ class Model3d():
             filename = dirname + file
             imagePathes.append(filename)
             imagesNumbers.append(int(file.split('_')[0]))
-        imagePathes = [ x for y,x in sorted(zip(imagesNumbers, imagePathes))]
-        self.imagePathes = imagePathes
+        imagePathes = [x for y,x in sorted(zip(imagesNumbers, imagePathes))]
+        self.image_pathes = imagePathes
 
     def find_pallet_bounding_box(self):
-        self.pallet = Pallet(self.imagePathes[0])
+        self.pallet = Pallet(self.image_pathes[0])
         self.pallet.find_bounding_box()
 
     def create_packer(self):
@@ -309,23 +309,28 @@ class Model3d():
         self.painter = Painter()
 
     def create_model(self):
-        self.packedBoxesInfo = []
+        self.packed_boxes_info = []
         self.unpacked_cargos_info = []
+
+        # FOR EDWARD
+        self.top_boxes = []
+        #
+
         i = 2
         iteration = 0
         for box in self.boxes["boxes"]:
-            boxesInfo = {}
-            imagePath = self.imagePathes[i - 1]
+            boxes_info = {}
+            image_path = self.image_pathes[i - 1]
             i += 1
-            box = Box(boxId=box["id"], x=box["x"], y=box["y"], z=box["z"], imagePath=imagePath)
-            # TODO поле имен
-            boxesInfo["calculated_size"] = {
+            box = Box(box_id=box["id"], x=box["x"], y=box["y"], z=box["z"], image_path=image_path)
+
+            boxes_info["calculated_size"] = {
             "width": round(float(box.x) * 0.01, 4),
             "length": round(float(box.y) * 0.01, 4),
             "height": round(float(box.z) * 0.01, 4)}
-            boxesInfo["cargo_id"] = box.id
-            boxesInfo["id"] = box.id
-            boxesInfo["mass"] = 1
+            boxes_info["cargo_id"] = box.id
+            boxes_info["id"] = box.id
+            boxes_info["mass"] = 1
 
 
             self.packer.append_box(box)
@@ -335,21 +340,49 @@ class Model3d():
             box.find_box_axes(self.pallet)
             box.find_box_sizes_in_3d()
             box.find_box_start_point_3d(pallet=self.pallet, queue=self.packer.queue[1::])
-            boxesInfo["position"] = {
+            boxes_info["position"] = {
                 "x": round(float(box.startPointZ) + round(float(box.z)) * 0.01 / 2, 4),
                 "y": round(float(box.startPointY) + round(float(box.y)) * 0.01 / 2, 4),
                 "z": round(float(box.startPointX) + round(float(box.x)) * 0.01 / 2, 4)}
-            boxesInfo["size"] = {
+            boxes_info["size"] = {
             "width": round(float(box.x) * 0.01, 4),
             "height": round(float(box.y) * 0.01, 4),
             "length": round(float(box.z) * 0.01, 4)
             }
-            boxesInfo["sort"] = 1
-            boxesInfo["stacking"] = True
-            boxesInfo["turnover"] = True
-            boxesInfo["type"] = "box"
-            self.packedBoxesInfo.append(boxesInfo)
+            boxes_info["sort"] = 1
+            boxes_info["stacking"] = True
+            boxes_info["turnover"] = True
+            boxes_info["type"] = "box"
+            self.packed_boxes_info.append(boxes_info)
             self.painter.draw_box(box, self.axGlob)
+
+            # FOR EDWARD
+            self.top_boxes.append(box)
+            #
+
+        # FOR EDWARD
+        top_boxes = self.find_top_boxes()
+        import math
+        angle_in_radians = min(math.atan2(top_boxes[0]['z'], top_boxes[0]['x']),
+                               math.atan2(top_boxes[0]['z'], top_boxes[0]['y']))
+        min_angle_in_degrees = angle_in_radians * 180 / math.pi
+        box_id = top_boxes[0]['id']
+        for box in top_boxes[1:]:
+            angle_in_radians = math.atan2(box['z'], box['x'])
+            box_a = angle_in_radians * 180 / math.pi
+            if box_a < min_angle_in_degrees:
+                min_angle_in_degrees = box_a
+                box_id = box['id']
+            angle_in_radians = math.atan2(box['z'], box['y'])
+            box_a = angle_in_radians * 180 / math.pi
+            if box_a < min_angle_in_degrees:
+                min_angle_in_degrees = box_a
+                box_id = box['id']
+
+        print(f"Box id: {box_id}")
+        print(f"Angle: {min_angle_in_degrees}")
+        plt.title(f"Угол падения: {round(min_angle_in_degrees, 2)}")
+        #
         plt.show()
 
     def create_output_json(self):
@@ -367,12 +400,22 @@ class Model3d():
         ],
         "type": "pallet"
         },
-        "cargos": self.packedBoxesInfo,
+        "cargos": self.packed_boxes_info,
         "unpacked": self.unpacked_cargos_info
         }
 
         with open("./Output/output.json", 'w') as fp:
             json.dump(outputDict, fp)
+
+# FOR EDWARD
+    def find_top_boxes(self):
+        top_boxes = [i for i in range(len(self.top_boxes))]
+        for i in range(len(self.top_boxes)):
+            if self.top_boxes[i].underBoxId > -1:
+                top_boxes.remove(i)
+        top_boxes = [box for box in self.boxes['boxes'] if box['id'] in top_boxes]
+        return top_boxes
+#
 
     def run(self):
         self.get_boxes()
@@ -382,3 +425,4 @@ class Model3d():
         self.create_painter()
         self.create_model()
         self.create_output_json()
+
