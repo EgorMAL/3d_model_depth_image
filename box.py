@@ -30,7 +30,6 @@ class Box():
         self.d[0] = round(float(self.size[1]) * 0.01, 4)
         self.d[1] = round(float(self.size[0]) * 0.01, 4)
         self.d[2] = round(float(self.size[2]) * 0.01, 4)
-        print(self.d)
 
     def find_box_axes(self, pallet: Pallet):
         """Поиск настоящей ориентации сторон коробки при укладке

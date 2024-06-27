@@ -9,13 +9,21 @@ from packer import Packer
 from painter import draw_box
 
 class Model3d():
-    def __init__(self, imagesPath=IMAGE_PATH, boxQueue=BOX_QUEUE):
-        self.imagePath = imagesPath
-        self.boxQueue = boxQueue
+    """3-D model class"""
+    def __init__(self, images_path=IMAGE_PATH, box_queue=BOX_QUEUE):
+        self.image_path = images_path
+        self.box_queue = box_queue
         self.fig = plt.figure()
-        self.axGlob = plt.axes(projection='3d')
+        self.ax_glob = plt.axes(projection='3d')
+        self.boxes = None
+        self.image_pathes = None
+        self.pallet = None
+        self.packer = None
+        self.packed_boxes_info = []
+        self.unpacked_cargos_info = []
 
     def get_boxes(self):
+        """Returns boxes"""
         boxes = {"boxes" : []}
         with open(BOX_QUEUE) as f:
             lines = f.readlines()
@@ -26,31 +34,28 @@ class Model3d():
         self.boxes = boxes
 
     def get_images(self):
+        """Returns images"""
         dirname = IMAGE_PATH
-        imagePathes = []
-        imagesNumbers = []
+        image_pathes = []
+        images_numbers = []
         for file in os.listdir(dirname):
             filename = dirname + file
-            imagePathes.append(filename)
-            imagesNumbers.append(int(file.split('_')[0]))
-        imagePathes = [x for y,x in sorted(zip(imagesNumbers, imagePathes))]
-        self.image_pathes = imagePathes
+            image_pathes.append(filename)
+            images_numbers.append(int(file.split('_')[0]))
+        image_pathes = [x for y,x in sorted(zip(images_numbers, image_pathes))]
+        self.image_pathes = image_pathes
 
     def find_pallet_bounding_box(self):
+        """Returns pallet bbox"""
         self.pallet = Pallet(self.image_pathes[0])
         self.pallet.find_bounding_box()
 
     def create_packer(self):
+        """Returns packer"""
         self.packer = Packer(self.pallet)
 
     def create_model(self):
-        self.packed_boxes_info = []
-        self.unpacked_cargos_info = []
-
-        # FOR EDWARD
-        self.top_boxes = []
-        #
-
+        """Retruns model"""
         i = 2
         iteration = 0
         for box in self.boxes["boxes"]:
@@ -90,21 +95,22 @@ class Model3d():
             boxes_info["type"] = "box"
             self.packed_boxes_info.append(boxes_info)
 
-            draw_box(box, self.axGlob)
+            draw_box(box, self.ax_glob)
         plt.show()
 
     def create_output_json(self):
-        outputDict = {
+        """Returns json file with results"""
+        output_dict = {
         "cargoSpace": {
         "loading_size": {
         "length": 0 * 0.01,
-        "height": self.pallet.y * 0.01,
-        "width": self.pallet.x * 0.01
+        "height": self.pallet.size[1] * 0.01,
+        "width": self.pallet.size[0] * 0.01
         },
         "position": [
         0 * 0.01 / 2,
-        self.pallet.y * 0.01 / 2,
-        self.pallet.x * 0.01 / 2
+        self.pallet.size[1] * 0.01 / 2,
+        self.pallet.size[0] * 0.01 / 2
         ],
         "type": "pallet"
         },
@@ -113,9 +119,10 @@ class Model3d():
         }
 
         with open("./Output/output.json", 'w') as fp:
-            json.dump(outputDict, fp)
+            json.dump(output_dict, fp)
 
     def run(self):
+        """Execute"""
         self.get_boxes()
         self.get_images()
         self.find_pallet_bounding_box()
